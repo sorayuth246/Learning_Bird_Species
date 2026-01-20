@@ -35,8 +35,8 @@
         color: "#4fc3f7",
         soundFile: "./Sounds/blue_jay.mp3",
         modelFile: "./Birds/blue_jay/scene.gltf",
-        scale: "3 3 3",
-        position: "0 -0.25 -3"
+        scale: "4 4 4",
+        position: "0 -0.5 -2.5"
       },
       'eurasian-model': {
         name: "Eurasian Blue Tit",
@@ -51,8 +51,8 @@
         color: "#00bcd4",
         soundFile: "./Sounds/eurasian_blue_tit.mp3",
         modelFile: "./Birds/eurasian_blue_tit/scene.gltf",
-        scale: "0.75 0.75 0.75",
-        position: "0 -0.1 -1"
+        scale: "1 1 1",
+        position: "0 -0.2 -1.2"
       },
       'woodpecker-model': {
         name: "Woodpecker",
@@ -67,8 +67,8 @@
         color: "#ED5537",
         soundFile: "./Sounds/woodpecker.mp3",
         modelFile: "./Birds/woodpecker/scene.gltf",
-        scale: "0.5 0.5 0.5",
-        position: "0 0.05 -1.5"
+        scale: "0.65 0.65 0.65",
+        position: "0 0 -1.8"
       }
     };
 
@@ -302,10 +302,8 @@
       
       if (Math.abs(diff) > swipeThreshold) {
         if (diff > 0) {
-          // Swipe left - next page
           nextPage();
         } else {
-          // Swipe right - previous page
           prevPage();
         }
       }
@@ -331,9 +329,7 @@
 
       const infoPanel = document.getElementById('info-panel');
       
-      // Use Pointer Events for both mouse and touch
       infoPanel.addEventListener('pointerdown', (e) => {
-        // Ignore if clicking on the sound button
         if (e.target.id === 'play-sound-btn' || e.target.closest('#play-sound-btn')) {
           return;
         }
@@ -361,7 +357,6 @@
         infoPanel.style.cursor = 'grab';
       });
       
-      // Set initial cursor
       infoPanel.style.cursor = 'grab';
     });
   </script>
@@ -483,14 +478,12 @@
       -webkit-user-select: none;
       touch-action: pan-y;
       pointer-events: none;
-
       position: fixed;
       inset: 0;
       width: 100vw;
       height: 100vh;
     }
 
-    
     #menu, .bird-btn, #info-panel, #play-sound-btn, .instructions {
       pointer-events: auto;
     }
@@ -810,11 +803,6 @@
     <button class="bird-btn" data-bird="eurasian">🔷 Eurasian Blue Tit</button>
     <button class="bird-btn" data-bird="woodpecker">🟠 Woodpecker</button>
   </div>
-
-<!--  <div class="instructions">
-    👆 เลือกชนิดนกด้านบน | 📱 เคลื่อนที่รอบๆ เพื่อดูโมเดล 360°<br>
-    🖱️ ลากเมาส์/ปัดนิ้วซ้าย-ขวาบนหน้าต่างเพื่อดูข้อมูลเพิ่มเติม
-  </div>-->
 
   <div id="cursor-dot"></div>
 
