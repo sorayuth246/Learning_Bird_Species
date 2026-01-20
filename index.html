@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebAR: เรียนรู้ชนิดของนก</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  
+  <script>
+    let audioContext = null;
+    let arStarted = false;
+    let selectedBirdType = null;
+    let selectedModel = null;
+    let currentAudio = null;
+    let isModelLoading = false;
+    let isAudioPlaying = false;
+    let currentPage = 0;
+    let totalPages = 0;
+    let pointerStartX = 0;
+    let pointerEndX = 0;
+    let isDragging = false;
+
+    const birdData = {
+      'bluejay-model': {
+        name: "Blue Jay",
+        scientificName: "Cyanocitta cristata",
+        details: [
+          { label: "✨ ลักษณะเด่น", value: "ขนสีฟ้าสด มีหงอนบนหัว สีขาวและดำตัดกันชัดเจน" },
+          { label: "📏 ขนาด", value: "22–30 ซม." },
+          { label: "⚖️ น้ำหนัก", value: "70–100 กรัม" },
+          { label: "🍽️ อาหาร", value: "แมลง เมล็ดพืช ผลไม้ และถั่ว" },
+          { label: "🏡 ถิ่นอาศัย", value: "ป่าโปร่ง และพื้นที่สีเขียวใกล้ชุมชน" }
+        ],
+        color: "#4fc3f7",
+        soundFile: "./Sounds/blue_jay.mp3",
+        modelFile: "./Birds/blue_jay/scene.gltf",
+        scale: "3 3 3",
+        position: "0 -0.25 -3"
+      },
+      'eurasian-model': {
+        name: "Eurasian Blue Tit",
+        scientificName: "Cyanistes caeruleus",
+        details: [
+          { label: "✨ ลักษณะเด่น", value: "นกขนาดเล็ก ขนสีน้ำเงิน-เหลืองสด มีแถบสีดำบริเวณตา" },
+          { label: "📏 ขนาด", value: "10–12 ซม." },
+          { label: "⚖️ น้ำหนัก", value: "9–12 กรัม" },
+          { label: "🍽️ อาหาร", value: "แมลง หนอน และเมล็ดพืชขนาดเล็ก" },
+          { label: "🏡 ถิ่นอาศัย", value: "ป่าไม้ สวนสาธารณะ และพื้นที่ชุมชน" }
+        ],
+        color: "#00bcd4",
+        soundFile: "./Sounds/eurasian_blue_tit.mp3",
+        modelFile: "./Birds/eurasian_blue_tit/scene.gltf",
+        scale: "0.75 0.75 0.75",
+        position: "0 -0.1 -1"
+      },
+      'woodpecker-model': {
+        name: "Woodpecker",
+        scientificName: "Picidae",
+        details: [
+          { label: "✨ ลักษณะเด่น", value: "จะงอยปากแข็งแรงใช้เจาะต้นไม้ มีลายขาวดำและสีแดงบริเวณหัว" },
+          { label: "📏 ขนาด", value: "20–35 ซม." },
+          { label: "⚖️ น้ำหนัก", value: "60–150 กรัม" },
+          { label: "🍽️ อาหาร", value: "แมลงและหนอนที่อาศัยอยู่ในเนื้อไม้" },
+          { label: "🏡 ถิ่นอาศัย", value: "ป่าไม้ และพื้นที่ที่มีต้นไม้ขนาดใหญ่" }
+        ],
+        color: "#ED5537",
+        soundFile: "./Sounds/woodpecker.mp3",
+        modelFile: "./Birds/woodpecker/scene.gltf",
+        scale: "0.5 0.5 0.5",
+        position: "0 0.05 -1.5"
+      }
+    };
+
+    function updatePagination(birdId) {
+      const data = birdData[birdId];
+      if (!data) return;
+
+      totalPages = Math.ceil(data.details.length / 2);
+      currentPage = 0;
+      renderPage(birdId);
+    }
+
+    function renderPage(birdId) {
+      const data = birdData[birdId];
+      if (!data) return;
+
+      const detailsContainer = document.getElementById('details-container');
+      
+      detailsContainer.innerHTML = '';
+      
+      const startIndex = currentPage * 2;
+      const endIndex = Math.min(startIndex + 2, data.details.length);
+      
+      for (let i = startIndex; i < endIndex; i++) {
+        const detail = data.details[i];
+        const infoRow = document.createElement('div');
+        infoRow.className = 'info-row';
+        infoRow.innerHTML = `
+          <span class="info-label">${detail.label}</span>
+          <span class="info-value">${detail.value}</span>
+        `;
+        detailsContainer.appendChild(infoRow);
+      }
+    }
+
+    function nextPage() {
+      if (currentPage < totalPages - 1) {
+        currentPage++;
+        const modelId = `${selectedBirdType}-model`;
+        renderPage(modelId);
+      }
+    }
+
+    function prevPage() {
+      if (currentPage > 0) {
+        currentPage--;
+        const modelId = `${selectedBirdType}-model`;
+        renderPage(modelId);
+      }
+    }
+
+    function showBirdInfo(birdId) {
+      const data = birdData[birdId];
+      if (!data) return;
+
+      const panel = document.getElementById('info-panel');
+      const birdName = document.getElementById('bird-name');
+      
+      birdName.textContent = data.name;
+      birdName.style.color = data.color;
+      document.getElementById('bird-scientific-name').textContent = data.scientificName;
+      
+      updatePagination(birdId);
+      
+      panel.style.display = 'block';
+    }
+
+    function stopAllBirdSounds() {
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+        isAudioPlaying = false;
+        updateAudioButton();
+      }
+    }
+
+    function updateAudioButton() {
+      const soundBtn = document.getElementById('play-sound-btn');
+      if (isAudioPlaying) {
+        soundBtn.innerHTML = '⏸️ หยุดเสียง';
+        soundBtn.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)';
+      } else {
+        soundBtn.innerHTML = '🔊 เล่นเสียงนก';
+        soundBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+      }
+    }
+
+    function toggleBirdSound() {
+      if (isAudioPlaying) {
+        stopAllBirdSounds();
+      } else {
+        playBirdSound(selectedBirdType);
+      }
+    }
+
+    function playBirdSound(birdType) {
+      stopAllBirdSounds();
+      
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      
+      const audioElement = document.getElementById(`${birdType}-sound`);
+      if (audioElement) {
+        audioElement.currentTime = 0;
+        currentAudio = audioElement;
+        
+        const playPromise = audioElement.play();
+        
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('Playing bird sound:', birdType);
+              isAudioPlaying = true;
+              updateAudioButton();
+            })
+            .catch(err => {
+              console.error('Error playing sound:', err);
+              alert('ไม่สามารถเล่นเสียงได้ กรุณาลองใหม่');
+              isAudioPlaying = false;
+              updateAudioButton();
+            });
+        }
+        
+        audioElement.onended = function() {
+          isAudioPlaying = false;
+          updateAudioButton();
+        };
+      }
+    }
+
+    function loadBirdModel(birdType) {
+      if (isModelLoading) {
+        alert('⏳ กรุณารอให้โมเดลโหลดเสร็จก่อนเลือกนกตัวอื่น');
+        return;
+      }
+      
+      isModelLoading = true;
+      
+      const loadingOverlay = document.getElementById('model-loading');
+      loadingOverlay.style.display = 'flex';
+      
+      const modelId = `${birdType}-model`;
+      const model = document.getElementById(modelId);
+      const data = birdData[modelId];
+      
+      if (model && data) {
+        selectedModel = model;
+        
+        model.setAttribute('gltf-model', data.modelFile);
+        model.setAttribute('scale', data.scale);
+        model.setAttribute('position', data.position);
+        model.setAttribute('rotation', '0 0 0');
+        
+        model.addEventListener('model-loaded', function onLoaded() {
+          model.removeEventListener('model-loaded', onLoaded);
+          
+          setTimeout(() => {
+            loadingOverlay.style.display = 'none';
+            model.setAttribute('visible', 'true');
+            showBirdInfo(modelId);
+            isModelLoading = false;
+          }, 500);
+        });
+        
+        model.addEventListener('model-error', function onError(e) {
+          model.removeEventListener('model-error', onError);
+          loadingOverlay.style.display = 'none';
+          alert('❌ ไม่สามารถโหลดโมเดลได้');
+          isModelLoading = false;
+        });
+      } else {
+        loadingOverlay.style.display = 'none';
+        isModelLoading = false;
+      }
+    }
+
+    function selectBird(birdType) {
+      stopAllBirdSounds();
+      selectedBirdType = birdType;
+      
+      const models = document.querySelectorAll('.bird-model');
+      models.forEach(model => {
+        model.setAttribute('visible', 'false');
+      });
+      
+      document.querySelectorAll('.bird-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      const activeBtn = document.querySelector(`[data-bird="${birdType}"]`);
+      if (activeBtn) {
+        activeBtn.classList.add('active');
+      }
+      
+      if (arStarted) {
+        loadBirdModel(birdType);
+      }
+    }
+
+    function startAR() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      
+      const welcomeScreen = document.getElementById('welcome-screen');
+      const arScene = document.getElementById('ar-scene');
+      const menu = document.getElementById('menu');
+      const cursorDot = document.getElementById('cursor-dot');
+      
+      welcomeScreen.style.opacity = '0';
+      setTimeout(() => {
+        welcomeScreen.style.display = 'none';
+        arScene.style.display = 'block';
+        
+        setTimeout(() => {
+          menu.style.display = 'flex';
+          cursorDot.style.display = 'block';
+          arStarted = true;
+          
+          setTimeout(() => {
+            selectBird('bluejay');
+          }, 1000);
+        }, 500);
+      }, 500);
+    }
+
+    function handleSwipe() {
+      const swipeThreshold = 50;
+      const diff = pointerStartX - pointerEndX;
+      
+      if (Math.abs(diff) > swipeThreshold) {
+        if (diff > 0) {
+          // Swipe left - next page
+          nextPage();
+        } else {
+          // Swipe right - previous page
+          prevPage();
+        }
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const startBtn = document.getElementById('start-btn');
+      if (startBtn) {
+        startBtn.addEventListener('click', startAR);
+      }
+
+      document.querySelectorAll('.bird-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const birdType = this.getAttribute('data-bird');
+          selectBird(birdType);
+        });
+      });
+
+      const soundBtn = document.getElementById('play-sound-btn');
+      if (soundBtn) {
+        soundBtn.addEventListener('click', toggleBirdSound);
+      }
+
+      const infoPanel = document.getElementById('info-panel');
+      
+      // Use Pointer Events for both mouse and touch
+      infoPanel.addEventListener('pointerdown', (e) => {
+        // Ignore if clicking on the sound button
+        if (e.target.id === 'play-sound-btn' || e.target.closest('#play-sound-btn')) {
+          return;
+        }
+        pointerStartX = e.clientX;
+        isDragging = true;
+        infoPanel.style.cursor = 'grabbing';
+      });
+      
+      infoPanel.addEventListener('pointermove', (e) => {
+        if (isDragging) {
+          e.preventDefault();
+        }
+      });
+      
+      infoPanel.addEventListener('pointerup', (e) => {
+        if (!isDragging) return;
+        pointerEndX = e.clientX;
+        isDragging = false;
+        infoPanel.style.cursor = 'grab';
+        handleSwipe();
+      });
+      
+      infoPanel.addEventListener('pointercancel', () => {
+        isDragging = false;
+        infoPanel.style.cursor = 'grab';
+      });
+      
+      // Set initial cursor
+      infoPanel.style.cursor = 'grab';
+    });
+  </script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Sarabun', 'Sukhumvit Set', Arial, sans-serif;
+      background: #000;
+      touch-action: none;
+    }
+
+    #welcome-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #5176e5 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      transition: opacity 0.5s ease;
+      padding: 20px;
+    }
+
+    .welcome-content {
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    .welcome-title {
+      color: white;
+      font-size: 36px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      text-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+    }
+
+    .welcome-subtitle {
+      color: rgba(255,255,255,0.95);
+      font-size: 18px;
+      margin-bottom: 50px;
+      text-shadow: 1px 1px 4px rgba(0,0,0,0.2);
+      line-height: 1.6;
+    }
+
+    #start-btn {
+      padding: 20px 70px;
+      border: none;
+      border-radius: 50px;
+      background: white;
+      color: #667eea;
+      font-size: 22px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+
+    #start-btn:hover {
+      transform: translateY(-3px) scale(1.05);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    }
+
+    #start-btn:active {
+      transform: translateY(-1px) scale(1.02);
+    }
+
+    #model-loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .loading-text {
+      color: white;
+      font-size: 20px;
+      font-weight: bold;
+      margin-top: 20px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #ar-scene {
+      display: none;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: pan-y;
+      pointer-events: none;
+    }
+    
+    #menu, .bird-btn, #info-panel, #play-sound-btn, .instructions {
+      pointer-events: auto;
+    }
+
+    #menu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 15px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%);
+      z-index: 999;
+    }
+
+    .menu-title {
+      color: white;
+      font-size: 15px;
+      font-weight: bold;
+      margin-right: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      width: 100%;
+      text-align: center;
+      margin-bottom: 5px;
+    }
+
+    @media (min-width: 768px) {
+      .menu-title {
+        width: auto;
+        margin-bottom: 0;
+      }
+    }
+
+    .bird-btn {
+      padding: 10px 20px;
+      border: 2px solid white;
+      border-radius: 25px;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    }
+
+    .bird-btn:hover {
+      background: rgba(255,255,255,0.25);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(255,255,255,0.3);
+    }
+
+    .bird-btn.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-color: #667eea;
+      box-shadow: 0 4px 20px rgba(102,126,234,0.6);
+      transform: scale(1.05);
+    }
+
+    #info-panel {
+      position: fixed;
+      bottom: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(145deg, rgba(15,15,35,0.96) 0%, rgba(25,25,45,0.96) 100%);
+      color: white;
+      padding: 18px 20px 15px 20px;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 420px;
+      max-height: 280px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 2px solid rgba(102,126,234,0.3);
+      display: none;
+      z-index: 999;
+      transition: opacity 0.3s ease;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: pan-y;
+      overflow: hidden;
+    }
+
+    .bird-name {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 6px;
+      text-align: center;
+      text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+      letter-spacing: 0.5px;
+    }
+
+    .scientific-name {
+      font-size: 12px;
+      font-style: italic;
+      color: #b0bec5;
+      text-align: center;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+
+    #details-container {
+      min-height: 120px;
+      margin-bottom: 0;
+    }
+
+    .info-row {
+      background: rgba(255,255,255,0.05);
+      padding: 10px 12px;
+      border-radius: 10px;
+      border-left: 3px solid rgba(102,126,234,0.6);
+      font-size: 13px;
+      line-height: 1.5;
+      transition: background 0.2s ease;
+      margin-bottom: 8px;
+    }
+
+    .info-row:hover {
+      background: rgba(255,255,255,0.08);
+    }
+
+    .info-label {
+      font-weight: bold;
+      color: #81d4fa;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .info-value {
+      color: #e0e0e0;
+      display: block;
+    }
+
+    .pagination-controls {
+      display: none;
+    }
+
+    .nav-btn {
+      display: none;
+    }
+
+    #page-indicator {
+      display: none;
+    }
+
+    .sound-btn-container {
+      text-align: center;
+      padding: 10px 0 0 0;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      margin-top: 10px;
+    }
+
+    #play-sound-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 11px 28px;
+      border-radius: 25px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+      width: calc(100% - 20px);
+      max-width: 250px;
+      margin: 0 auto;
+      display: block;
+    }
+
+    #play-sound-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(102,126,234,0.6);
+    }
+
+    #play-sound-btn:active {
+      transform: scale(0.95);
+    }
+
+    .instructions {
+      position: fixed;
+      top: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 15px;
+      font-size: 12px;
+      text-align: center;
+      z-index: 998;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.2);
+      max-width: 90%;
+      transition: opacity 0.3s ease;
+      line-height: 1.5;
+      user-select: none;
+    }
+
+    #cursor-dot {
+      position: fixed;
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(255,255,255,0.9);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 1000;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 15px rgba(255,255,255,0.6),
+                  inset 0 0 5px rgba(255,255,255,0.3);
+      animation: pulse 2s ease-in-out infinite;
+      display: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.8;
+      }
+      50% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .welcome-title {
+        font-size: 28px;
+      }
+      
+      .welcome-subtitle {
+        font-size: 16px;
+      }
+      
+      #start-btn {
+        font-size: 18px;
+        padding: 16px 50px;
+      }
+      
+      .menu-title {
+        font-size: 13px;
+      }
+      
+      .bird-btn {
+        padding: 8px 15px;
+        font-size: 12px;
+      }
+      
+      #info-panel {
+        width: 95%;
+        padding: 15px 18px 12px 18px;
+        max-height: 260px;
+      }
+
+      #play-sound-btn {
+        padding: 10px 24px;
+        font-size: 13px;
+        width: calc(100% - 10px);
+      }
+      
+      .bird-name {
+        font-size: 18px;
+      }
+
+      .scientific-name {
+        font-size: 11px;
+      }
+
+      .info-row {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
+      .info-label {
+        font-size: 10px;
+      }
+      
+      .instructions {
+        font-size: 11px;
+        padding: 8px 15px;
+        top: 85px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="welcome-screen">
+    <div class="welcome-content">
+      <h1 class="welcome-title">🐦 WebAR: เรียนรู้ชนิดของนก</h1>
+      
+      <button id="start-btn">เริ่มต้นใช้งาน</button>
+    </div>
+  </div>
+
+  <div id="model-loading">
+    <div class="spinner"></div>
+    <div class="loading-text">กำลังโหลดโมเดล...</div>
+  </div>
+
+  <div id="menu">
+    <span class="menu-title">🐦 เลือกนกที่ต้องการศึกษา</span>
+    <button class="bird-btn" data-bird="bluejay">🔵 Blue Jay</button>
+    <button class="bird-btn" data-bird="eurasian">🔷 Eurasian Blue Tit</button>
+    <button class="bird-btn" data-bird="woodpecker">🟠 Woodpecker</button>
+  </div>
+
+<!--  <div class="instructions">
+    👆 เลือกชนิดนกด้านบน | 📱 เคลื่อนที่รอบๆ เพื่อดูโมเดล 360°<br>
+    🖱️ ลากเมาส์/ปัดนิ้วซ้าย-ขวาบนหน้าต่างเพื่อดูข้อมูลเพิ่มเติม
+  </div>-->
+
+  <div id="cursor-dot"></div>
+
+  <div id="info-panel">
+    <div class="bird-name" id="bird-name"></div>
+    <div class="scientific-name" id="bird-scientific-name"></div>
+    
+    <div id="details-container"></div>
+    
+    <div class="sound-btn-container">
+      <button id="play-sound-btn">🔊 เล่นเสียงนก</button>
+    </div>
+  </div>
+
+  <audio id="bluejay-sound" preload="auto">
+    <source src="./Sounds/blue_jay.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="eurasian-sound" preload="auto">
+    <source src="./Sounds/eurasian_blue_tit.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="woodpecker-sound" preload="auto">
+    <source src="./Sounds/woodpecker.mp3" type="audio/mpeg">
+  </audio>
+
+  <a-scene
+    id="ar-scene"
+    embedded
+    vr-mode-ui="enabled: false"
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; trackingMethod: best;"
+    renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true;">
+    
+    <a-camera position="0 0 0" look-controls="enabled: true" wasd-controls="enabled: false" arjs-look-controls="smoothingFactor: 0.1">
+    </a-camera>
+
+    <a-light type="ambient" intensity="1" color="#ffffff"></a-light>
+    <a-light type="directional" intensity="0.8" position="2 4 2" color="#ffffff"></a-light>
+    <a-light type="directional" intensity="0.5" position="-2 2 -2" color="#aaddff"></a-light>
+    <a-light type="point" intensity="0.6" position="0 2 0" color="#ffffff"></a-light>
+
+    <a-entity
+      id="bluejay-model"
+      class="bird-model"
+      position="0 -0.3 -20"
+      scale="0.1 0.1 0.1"
+      rotation="0 0 0"
+      animation-mixer
+      visible="false">
+    </a-entity>
+
+    <a-entity
+      id="eurasian-model"
+      class="bird-model"
+      position="0 -0.3 -1.5"
+      scale="0.4 0.4 0.4"
+      rotation="0 0 0"
+      animation-mixer
+      visible="false">
+    </a-entity>
+
+    <a-entity
+      id="woodpecker-model"
+      class="bird-model"
+      position="0 -0.3 -1.5"
+      scale="0.4 0.4 0.4"
+      rotation="0 0 0"
+      animation-mixer
+      visible="false">
+    </a-entity>
+
+    <a-entity
+      geometry="primitive: plane; width: 10; height: 10"
+      rotation="-90 0 0"
+      position="0 -1 -2"
+      material="opacity: 0; transparent: true"
+      shadow="receive: true">
+    </a-entity>
+
+  </a-scene>
+</body>
+</html>
