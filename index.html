@@ -20,7 +20,6 @@
     let pointerStartX = 0;
     let pointerEndX = 0;
     let isDragging = false;
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     const birdData = {
       'bluejay-model': {
@@ -221,13 +220,8 @@
         selectedModel = model;
         
         model.setAttribute('gltf-model', data.modelFile);
-      const config = isMobile ? data.mobile : data.desktop;
-      model.setAttribute('scale', config.scale);
-      model.setAttribute('position', config.position);
-      if (isMobile) {
-        model.removeAttribute('animation-mixer');
-      }
-
+        model.setAttribute('scale', data.scale);
+        model.setAttribute('position', data.position);
         model.setAttribute('rotation', '0 0 0');
         
         model.addEventListener('model-loaded', function onLoaded() {
@@ -294,10 +288,7 @@
           menu.style.display = 'flex';
           cursorDot.style.display = 'block';
           arStarted = true;
-          const camera = document.getElementById('camera');
-          if (isMobile) {
-            camera.setAttribute('fov', '80');
-          }
+          
           setTimeout(() => {
             selectBird('bluejay');
           }, 1000);
