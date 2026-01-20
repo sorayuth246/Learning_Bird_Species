@@ -20,7 +20,6 @@
     let pointerStartX = 0;
     let pointerEndX = 0;
     let isDragging = false;
-    let isModelInView = false;
 
     const birdData = {
       'bluejay-model': {
@@ -72,93 +71,6 @@
         position: "0 -0.1 -2"
       }
     };
-
-    // ระบบตรวจจับโมเดลในมุมมองกล้อง
-    AFRAME.registerComponent('model-visibility-tracker', {
-      schema: {
-        birdId: { type: 'string', default: '' }
-      },
-
-      init: function() {
-        this.camera = null;
-        this.checkInterval = null;
-      },
-
-      play: function() {
-        this.camera = document.querySelector('a-camera');
-        if (this.camera) {
-          // ตรวจสอบทุก 100ms
-          this.checkInterval = setInterval(() => {
-            this.checkVisibility();
-          }, 100);
-        }
-      },
-
-      pause: function() {
-        if (this.checkInterval) {
-          clearInterval(this.checkInterval);
-          this.checkInterval = null;
-        }
-      },
-
-      checkVisibility: function() {
-        if (!this.camera || !this.el.getAttribute('visible')) {
-          this.updateInfoPanel(false);
-          return;
-        }
-
-        const modelId = this.el.id;
-        if (modelId !== `${selectedBirdType}-model`) {
-          return;
-        }
-
-        // ดึงตำแหน่งและทิศทางของกล้อง
-        const cameraWorldPos = new THREE.Vector3();
-        this.camera.object3D.getWorldPosition(cameraWorldPos);
-
-        const cameraWorldDir = new THREE.Vector3();
-        this.camera.object3D.getWorldDirection(cameraWorldDir);
-
-        // ดึงตำแหน่งของโมเดล
-        const modelWorldPos = new THREE.Vector3();
-        this.el.object3D.getWorldPosition(modelWorldPos);
-
-        // คำนวณเวกเตอร์จากกล้องไปยังโมเดล
-        const toModel = new THREE.Vector3();
-        toModel.subVectors(modelWorldPos, cameraWorldPos);
-        const distance = toModel.length();
-        toModel.normalize();
-
-        // คำนวณมุมระหว่างทิศทางกล้องกับทิศทางไปยังโมเดล
-        const dotProduct = cameraWorldDir.dot(toModel);
-        const angle = Math.acos(dotProduct) * (180 / Math.PI);
-
-        // ตรวจสอบว่าโมเดลอยู่ในมุมมอง
-        // FOV ของกล้อง = 60 องศา ดังนั้นครึ่งหนึ่ง = 30 องศา
-        // เพิ่มพื้นที่เผื่อเป็น 35 องศา และตรวจสอบระยะห่าง
-        const isInView = angle < 35 && distance < 10;
-
-        this.updateInfoPanel(isInView);
-      },
-
-      updateInfoPanel: function(visible) {
-        const previousState = isModelInView;
-        isModelInView = visible;
-
-        const infoPanel = document.getElementById('info-panel');
-        
-        if (visible && !previousState) {
-          // โมเดลเข้าสู่มุมมอง
-          const modelId = this.el.id;
-          showBirdInfo(modelId);
-          infoPanel.style.display = 'block';
-        } else if (!visible && previousState) {
-          // โมเดลออกจากมุมมอง
-          infoPanel.style.display = 'none';
-          stopAllBirdSounds();
-        }
-      }
-    });
 
     function updatePagination(birdId) {
       const data = birdData[birdId];
@@ -220,6 +132,8 @@
       document.getElementById('bird-scientific-name').textContent = data.scientificName;
       
       updatePagination(birdId);
+      
+      panel.style.display = 'block';
     }
 
     function stopAllBirdSounds() {
@@ -316,6 +230,7 @@
           setTimeout(() => {
             loadingOverlay.style.display = 'none';
             model.setAttribute('visible', 'true');
+            showBirdInfo(modelId);
             isModelLoading = false;
           }, 500);
         });
@@ -349,11 +264,6 @@
         activeBtn.classList.add('active');
       }
       
-      // ซ่อน info panel เมื่อเปลี่ยนนก
-      const infoPanel = document.getElementById('info-panel');
-      infoPanel.style.display = 'none';
-      isModelInView = false;
-      
       if (arStarted) {
         loadBirdModel(birdType);
       }
@@ -368,7 +278,6 @@
       const arScene = document.getElementById('ar-scene');
       const menu = document.getElementById('menu');
       const cursorDot = document.getElementById('cursor-dot');
-      const instructions = document.getElementById('instructions');
       
       welcomeScreen.style.opacity = '0';
       setTimeout(() => {
@@ -378,7 +287,6 @@
         setTimeout(() => {
           menu.style.display = 'flex';
           cursorDot.style.display = 'block';
-          instructions.style.display = 'block';
           arStarted = true;
           
           setTimeout(() => {
@@ -720,6 +628,18 @@
       display: block;
     }
 
+    .pagination-controls {
+      display: none;
+    }
+
+    .nav-btn {
+      display: none;
+    }
+
+    #page-indicator {
+      display: none;
+    }
+
     .sound-btn-container {
       text-align: center;
       padding: 10px 0 0 0;
@@ -772,7 +692,6 @@
       transition: opacity 0.3s ease;
       line-height: 1.5;
       user-select: none;
-      display: none;
     }
 
     #cursor-dot {
@@ -868,7 +787,7 @@
   <div id="welcome-screen">
     <div class="welcome-content">
       <h1 class="welcome-title">🐦 WebAR: เรียนรู้ชนิดของนก</h1>
-      <p class="welcome-subtitle">หันกล้องไปทางโมเดลนกเพื่อดูข้อมูล</p>
+      
       <button id="start-btn">เริ่มต้นใช้งาน</button>
     </div>
   </div>
@@ -886,11 +805,6 @@
   </div>
 
   <div id="cursor-dot"></div>
-
-  <div id="instructions" class="instructions">
-    📱 หันกล้องไปทางนกเพื่อดูข้อมูล<br>
-    👆 ปัดซ้าย-ขวาบนแผงข้อมูลเพื่อดูเพิ่มเติม
-  </div>
 
   <div id="info-panel">
     <div class="bird-name" id="bird-name"></div>
@@ -920,13 +834,14 @@
     arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; trackingMethod: best;"
     renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true;">
     
-    <a-camera
-      fov="60"
-      position="0 0 0"
-      look-controls="enabled: true"
-      wasd-controls="enabled: false"
-      arjs-look-controls="smoothingFactor: 0.1">
-    </a-camera>
+  <a-camera
+    fov="60"
+    position="0 0 0"
+    look-controls="enabled: true"
+    wasd-controls="enabled: false"
+    arjs-look-controls="smoothingFactor: 0.1">
+  </a-camera>
+
 
     <a-light type="ambient" intensity="1" color="#ffffff"></a-light>
     <a-light type="directional" intensity="0.8" position="2 4 2" color="#ffffff"></a-light>
@@ -938,8 +853,7 @@
       class="bird-model"
       rotation="0 0 0"
       animation-mixer
-      visible="false"
-      model-visibility-tracker="birdId: bluejay">
+      visible="false">
     </a-entity>
 
     <a-entity
@@ -947,8 +861,7 @@
       class="bird-model"
       rotation="0 0 0"
       animation-mixer
-      visible="false"
-      model-visibility-tracker="birdId: eurasian">
+      visible="false">
     </a-entity>
 
     <a-entity
@@ -956,8 +869,7 @@
       class="bird-model"
       rotation="0 0 0"
       animation-mixer
-      visible="false"
-      model-visibility-tracker="birdId: woodpecker">
+      visible="false">
     </a-entity>
 
     <a-entity
