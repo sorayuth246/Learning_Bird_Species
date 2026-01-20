@@ -227,7 +227,7 @@
       } else {
         // คอม: ใช้ค่าที่มึงตั้งไว้เดิม
         model.setAttribute('scale', data.scale);
-      
+      }
 
       model.setAttribute('position', data.position);
       model.setAttribute('rotation', '0 0 0');
@@ -284,7 +284,7 @@
       const isMobile = window.innerWidth < 768;
 
       if (isMobile) {
-        camera.setAttribute('fov', '55'); // มือถือ
+        camera.setAttribute('fov', '75'); // มือถือ
       } else {
         camera.setAttribute('fov', '60'); // คอม
       }
