@@ -268,11 +268,24 @@
         loadBirdModel(birdType);
       }
     }
+    function adjustCameraForDevice() {
+      const camera = document.querySelector('a-camera');
+      if (!camera) return;
+
+      const isMobile = window.innerWidth < 768;
+
+      if (isMobile) {
+        camera.setAttribute('fov', '75'); // มือถือ
+      } else {
+        camera.setAttribute('fov', '60'); // คอม
+      }
+    }
 
     function startAR() {
       if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
       }
+      adjustCameraForDevice();
       
       const welcomeScreen = document.getElementById('welcome-screen');
       const arScene = document.getElementById('ar-scene');
@@ -847,7 +860,6 @@
     renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true;">
     
   <a-camera
-    fov="60"
     position="0 0 0"
     look-controls="enabled: true"
     wasd-controls="enabled: false"
