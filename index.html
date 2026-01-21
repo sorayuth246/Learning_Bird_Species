@@ -1,3 +1,4 @@
+v2(คลิ๊ก).txt
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -255,20 +256,16 @@
         model.setAttribute('rotation', '0 0 0');
                 
         model.addEventListener('model-loaded', function onLoaded() {
-        model.removeEventListener('model-loaded', onLoaded);
+          model.removeEventListener('model-loaded', onLoaded);
 
-        document.querySelectorAll('.bird-model').forEach(m => {
+          document.querySelectorAll('.bird-model').forEach(m => {
             m.setAttribute('visible', 'false');
+          });
+
+          model.setAttribute('visible', 'true');
+          loadingOverlay.style.display = 'none';
+          isModelLoading = false;
         });
-
-        model.setAttribute('visible', 'true');
-        loadingOverlay.style.display = 'none';
-        isModelLoading = false;
-
-        // 🔥 สำคัญสัส
-        showBirdInfo(modelId);
-        });
-
 
         
         model.addEventListener('model-error', function onError(e) {
