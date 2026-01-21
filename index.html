@@ -1,4 +1,3 @@
-v3(หมุน).txt
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -23,15 +22,6 @@ v3(หมุน).txt
     let isDragging = false;
     let lastClickTime = 0;
     const doubleTapDelay = 300;
-
-    // ตัวแปรสำหรับการหมุนโมเดล
-    let isRotating = false;
-    let rotationStartX = 0;
-    let rotationStartY = 0;
-    let currentRotationY = 0;
-    let currentRotationX = 0;
-    let lastTouchX = 0;
-    let lastTouchY = 0;
 
     const birdData = {
       'bluejay-model': {
@@ -82,134 +72,8 @@ v3(หมุน).txt
         scale: "1 1 1",
         position: "0 -0.1 -2"
       }
+
     };
-
-    // A-Frame component สำหรับการหมุนโมเดล - rotates WRAPPER not model
-    AFRAME.registerComponent('rotation-handler', {
-      init: function() {
-        this.onMouseDown = this.onMouseDown.bind(this);
-        this.onMouseMove = this.onMouseMove.bind(this);
-        this.onMouseUp = this.onMouseUp.bind(this);
-        this.onTouchStart = this.onTouchStart.bind(this);
-        this.onTouchMove = this.onTouchMove.bind(this);
-        this.onTouchEnd = this.onTouchEnd.bind(this);
-
-        this.dragThreshold = 5;   // แยก tap กับ drag
-        this.hasMoved = false;
-        this.isRotating = false;
-        this.startX = 0;
-        this.startY = 0;
-        this.currentRotationY = 0;
-        this.currentRotationX = 0;
-        this.targetWrapper = null; // Reference to active wrapper entity
-
-        window.addEventListener('mousedown', this.onMouseDown);
-        window.addEventListener('mousemove', this.onMouseMove);
-        window.addEventListener('mouseup', this.onMouseUp);
-        window.addEventListener('touchstart', this.onTouchStart, { passive: false });
-        window.addEventListener('touchmove', this.onTouchMove, { passive: false });
-        window.addEventListener('touchend', this.onTouchEnd);
-      },
-
-      // Called when switching models - sets wrapper and resets rotation
-      setTargetWrapper: function(wrapperId) {
-        this.targetWrapper = document.getElementById(wrapperId);
-        this.currentRotationY = 0;
-        this.currentRotationX = 0;
-      },
-
-      onMouseDown: function (e) {
-        const panel = document.getElementById('info-panel');
-        const menu = document.getElementById('menu');
-        if (panel.contains(e.target) || menu.contains(e.target)) return;
-
-        this.isRotating = true;
-        this.hasMoved = false;
-        this.startX = e.clientX;
-        this.startY = e.clientY;
-      },
-
-      onMouseMove: function (e) {
-        if (!this.isRotating || !this.targetWrapper) return;
-
-        const deltaX = e.clientX - this.startX;
-        const deltaY = e.clientY - this.startY;
-
-        if (Math.abs(deltaX) > this.dragThreshold || Math.abs(deltaY) > this.dragThreshold) {
-          this.hasMoved = true;
-        }
-
-        if (!this.hasMoved) return;
-
-        this.currentRotationY += deltaX * 0.5;
-        this.currentRotationX -= deltaY * 0.3;
-        this.currentRotationX = Math.max(-45, Math.min(45, this.currentRotationX));
-
-        this.targetWrapper.setAttribute(
-          'rotation',
-          `${this.currentRotationX} ${this.currentRotationY} 0`
-        );
-
-        this.startX = e.clientX;
-        this.startY = e.clientY;
-      },
-
-      onMouseUp: function (e) {
-        if (!this.isRotating) return;
-
-        this.isRotating = false;
-      },
-
-      onTouchStart: function(e) {
-        const panel = document.getElementById('info-panel');
-        const menu = document.getElementById('menu');
-        
-        if (e.target && (panel.contains(e.target) || menu.contains(e.target))) {
-          return;
-        }
-
-        if (e.touches.length === 1) {
-          this.isRotating = true;
-          this.startX = e.touches[0].clientX;
-          this.startY = e.touches[0].clientY;
-        }
-      },
-
-      onTouchMove: function(e) {
-        if (!this.isRotating || !this.targetWrapper || e.touches.length !== 1) return;
-
-        e.preventDefault();
-
-        const touch = e.touches[0];
-        const deltaX = touch.clientX - this.startX;
-        const deltaY = touch.clientY - this.startY;
-
-        this.currentRotationY += deltaX * 0.5;
-        this.currentRotationX -= deltaY * 0.3;
-        this.currentRotationX = Math.max(-45, Math.min(45, this.currentRotationX));
-
-        // Rotate WRAPPER not child - keeps position stable
-        this.targetWrapper.setAttribute('rotation', `${this.currentRotationX} ${this.currentRotationY} 0`);
-
-        this.startX = touch.clientX;
-        this.startY = touch.clientY;
-      },
-
-      onTouchEnd: function(e) {
-        if (e.touches.length === 0) {
-          this.isRotating = false;
-        }
-      },
-
-      remove: function() {
-        window.removeEventListener('mousedown', this.onMouseDown);
-        window.removeEventListener('mousemove', this.onMouseMove);
-        window.removeEventListener('mouseup', this.onMouseUp);
-        window.removeEventListener('touchstart', this.onTouchStart);
-        window.removeEventListener('touchmove', this.onTouchMove);
-        window.removeEventListener('touchend', this.onTouchEnd);
-      }
-    });
 
     // A-Frame component for single tap detection
     AFRAME.registerComponent('single-tap-handler', {
@@ -379,59 +243,40 @@ v3(หมุน).txt
       loadingOverlay.style.display = 'flex';
       
       const modelId = `${birdType}-model`;
-      const wrapperId = `${birdType}-wrapper`;
       const model = document.getElementById(modelId);
-      const wrapper = document.getElementById(wrapperId);
       const data = birdData[modelId];
       
-      if (model && wrapper && data) {
+      if (model && data) {
         selectedModel = model;
         
-        // ซ่อน wrapper ทั้งหมดก่อน
-        document.querySelectorAll('.bird-wrapper').forEach(w => {
-          w.setAttribute('visible', 'false');
-        });
-        
-        // ตั้งค่า wrapper: position คงที่ตาม birdData, rotation รีเซ็ต
-        wrapper.setAttribute('position', data.position);
-        wrapper.setAttribute('rotation', '0 0 0');
-        wrapper.setAttribute('visible', 'true');
-        
-        // ตั้งค่า model child: position ต้องเป็น 0 0 0 เสมอ, scale ตาม birdData
-        model.setAttribute('position', '0 0 0');
+        model.setAttribute('gltf-model', data.modelFile);
         model.setAttribute('scale', data.scale);
-        
-        // โหลด gltf-model ถ้ายังไม่มี
-        if (!model.getAttribute('gltf-model')) {
-          model.setAttribute('gltf-model', data.modelFile);
-        }
-        
-        // อัปเดต rotation handler ให้ชี้ไปที่ wrapper นี้
-        const rotationHandler = document.querySelector('[rotation-handler]');
-        if (rotationHandler && rotationHandler.components['rotation-handler']) {
-          rotationHandler.components['rotation-handler'].setTargetWrapper(wrapperId);
-        }
-        
-        // รอโมเดลโหลดเสร็จ
+        model.setAttribute('position', data.position);
+        model.setAttribute('rotation', '0 0 0');
+                
         model.addEventListener('model-loaded', function onLoaded() {
-          model.removeEventListener('model-loaded', onLoaded);
-          loadingOverlay.style.display = 'none';
-          isModelLoading = false;
+        model.removeEventListener('model-loaded', onLoaded);
+
+        document.querySelectorAll('.bird-model').forEach(m => {
+            m.setAttribute('visible', 'false');
         });
 
+        model.setAttribute('visible', 'true');
+        loadingOverlay.style.display = 'none';
+        isModelLoading = false;
+
+        // 🔥 สำคัญสัส
+        showBirdInfo(modelId);
+        });
+
+
+        
         model.addEventListener('model-error', function onError(e) {
           model.removeEventListener('model-error', onError);
           loadingOverlay.style.display = 'none';
           alert('❌ ไม่สามารถโหลดโมเดลได้');
           isModelLoading = false;
         });
-        
-        // ถ้าโมเดลโหลดไว้แล้ว ปิด loading ทันที
-        if (model.getAttribute('gltf-model') && model.components['gltf-model'].model) {
-          loadingOverlay.style.display = 'none';
-          isModelLoading = false;
-        }
-        
       } else {
         loadingOverlay.style.display = 'none';
         isModelLoading = false;
@@ -442,10 +287,9 @@ v3(หมุน).txt
       stopAllBirdSounds();
       selectedBirdType = birdType;
 
-      // ไม่ต้องลบ gltf-model เพราะเราต้องการให้โหลดครั้งเดียว
-      // แค่ซ่อน wrapper ทั้งหมด
-      document.querySelectorAll('.bird-wrapper').forEach(wrapper => {
-        wrapper.setAttribute('visible', 'false');
+      document.querySelectorAll('.bird-model').forEach(model => {
+        model.setAttribute('visible', 'false');
+        model.removeAttribute('gltf-model'); // เคลียร์ของเก่า
       });
 
       document.querySelectorAll('.bird-btn').forEach(btn => {
@@ -471,7 +315,6 @@ v3(หมุน).txt
       const arScene = document.getElementById('ar-scene');
       const menu = document.getElementById('menu');
       const cursorDot = document.getElementById('cursor-dot');
-      const rotateHint = document.getElementById('rotate-hint');
       
       welcomeScreen.style.opacity = '0';
       setTimeout(() => {
@@ -481,18 +324,10 @@ v3(หมุน).txt
         setTimeout(() => {
           menu.style.display = 'flex';
           cursorDot.style.display = 'block';
-          rotateHint.style.display = 'block';
           arStarted = true;
           
           setTimeout(() => {
             selectBird('bluejay');
-            
-            setTimeout(() => {
-              rotateHint.style.opacity = '0';
-              setTimeout(() => {
-                rotateHint.style.display = 'none';
-              }, 1000);
-            }, 4000);
           }, 1000);
         }, 500);
       }, 500);
@@ -747,17 +582,6 @@ v3(หมุน).txt
       transform: scale(1.05);
     }
 
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateX(-50%) translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-      }
-    }
-
     #info-panel {
       position: fixed;
       bottom: 15px;
@@ -961,12 +785,7 @@ v3(หมุน).txt
       .info-label {
         font-size: 10px;
       }
-
-      #rotate-hint {
-        bottom: 300px;
-        font-size: 13px;
-        padding: 12px 20px;
-      }
+      
     }
   </style>
 </head>
@@ -974,7 +793,7 @@ v3(หมุน).txt
 <body>
   <div id="welcome-screen">
     <div class="welcome-content">
-      <h1 class="welcome-title">🐦WebAR: เรียนรู้ชนิดของนก</h1>
+      <h1 class="welcome-title">🐦 WebAR: เรียนรู้ชนิดของนก</h1>
       
       <button id="start-btn">เริ่มต้นใช้งาน</button>
     </div>
@@ -990,9 +809,6 @@ v3(หมุน).txt
     <button class="bird-btn" data-bird="bluejay">🔵 Blue Jay</button>
     <button class="bird-btn" data-bird="eurasian">🔷 Eurasian Blue Tit</button>
     <button class="bird-btn" data-bird="red_bellied_woodpecker">🔴 Red Bellied Woodpecker</button>
-  </div>
-
-  <div id="rotate-hint">
   </div>
 
   <div id="cursor-dot"></div>
@@ -1023,84 +839,53 @@ v3(หมุน).txt
     embedded
     vr-mode-ui="enabled: false"
     arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; trackingMethod: best;"
-    renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true;"
-    rotation-handler>
+    renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true;">
     
     <a-camera
       fov="60"
       position="0 0 0"
-      look-controls="enabled: false"
+      look-controls="enabled: true"
       wasd-controls="enabled: false"
-      arjs-look-controls="enabled: false">
-
-      <a-cursor
-        rayOrigin="mouse"
-        fuse="false"
-        raycaster="objects: .bird-model">
-      </a-cursor>
+      arjs-look-controls="smoothingFactor: 0.1">
+    <a-cursor
+      fuse="false"
+      rayOrigin="mouse"
+      raycaster="objects: .bird-model"
+      material="opacity: 0">
+    </a-cursor>
 
     </a-camera>
-
 
     <a-light type="ambient" intensity="1" color="#ffffff"></a-light>
     <a-light type="directional" intensity="0.8" position="2 4 2" color="#ffffff"></a-light>
     <a-light type="directional" intensity="0.5" position="-2 2 -2" color="#aaddff"></a-light>
     <a-light type="point" intensity="0.6" position="0 2 0" color="#ffffff"></a-light>
 
-    <!-- Wrapper structure: position+rotation on parent, gltf on child -->
-    
-    <!-- Blue Jay wrapper -->
     <a-entity
-      id="bluejay-wrapper"
-      class="bird-wrapper"
-      position="0 -0.8 -3"
+      id="bluejay-model"
+      class="bird-model"
       rotation="0 0 0"
-      visible="false">
-      <a-entity
-        id="bluejay-model"
-        class="bird-model"
-        gltf-model="./Birds/blue_jay/scene.gltf"
-        scale="6 6 6"
-        position="0 0 0"
-        animation-mixer
-        single-tap-handler>
-      </a-entity>
+      animation-mixer
+      visible="false"
+      single-tap-handler>
     </a-entity>
 
-    <!-- Eurasian Blue Tit wrapper -->
     <a-entity
-      id="eurasian-wrapper"
-      class="bird-wrapper"
-      position="0 -0.3 -1.5"
+      id="eurasian-model"
+      class="bird-model"
       rotation="0 0 0"
-      visible="false">
-      <a-entity
-        id="eurasian-model"
-        class="bird-model"
-        gltf-model="./Birds/eurasian_blue_tit/scene.gltf"
-        scale="1.5 1.5 1.5"
-        position="0 0 0"
-        animation-mixer
-        single-tap-handler>
-      </a-entity>
+      animation-mixer
+      visible="false"
+      single-tap-handler>
     </a-entity>
 
-    <!-- Red-bellied Woodpecker wrapper -->
     <a-entity
-      id="red_bellied_woodpecker-wrapper"
-      class="bird-wrapper"
-      position="0 -0.1 -2"
+      id="red_bellied_woodpecker-model"
+      class="bird-model"
       rotation="0 0 0"
-      visible="false">
-      <a-entity
-        id="red_bellied_woodpecker-model"
-        class="bird-model"
-        gltf-model="./Birds/red_bellied_woodpecker/scene.gltf"
-        scale="1 1 1"
-        position="0 0 0"
-        animation-mixer
-        single-tap-handler>
-      </a-entity>
+      animation-mixer
+      visible="false"
+      single-tap-handler>
     </a-entity>
 
     <a-entity
