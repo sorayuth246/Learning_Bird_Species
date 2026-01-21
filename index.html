@@ -20,6 +20,8 @@
     let pointerStartX = 0;
     let pointerEndX = 0;
     let isDragging = false;
+    let lastClickTime = 0;
+    const doubleTapDelay = 300;
 
     const birdData = {
       'bluejay-model': {
@@ -54,23 +56,45 @@
         scale: "1.5 1.5 1.5",
         position: "0 -0.3 -1.5"
       },
-      'woodpecker-model': {
-        name: "Woodpecker",
-        scientificName: "Picidae",
+      'red_bellied_woodpecker-model': {
+        name: "Red-bellied Woodpecker",
+        scientificName: "Melanerpes carolinus",
         details: [
-          { label: "✨ ลักษณะเด่น", value: "จะงอยปากแข็งแรงใช้เจาะต้นไม้ มีลายขาวดำและสีแดงบริเวณหัว" },
-          { label: "📏 ขนาด", value: "20–35 ซม." },
-          { label: "⚖️ น้ำหนัก", value: "60–150 กรัม" },
-          { label: "🍽️ อาหาร", value: "แมลงและหนอนที่อาศัยอยู่ในเนื้อไม้" },
-          { label: "🏡 ถิ่นอาศัย", value: "ป่าไม้ และพื้นที่ที่มีต้นไม้ขนาดใหญ่" }
+          { label: "✨ ลักษณะเด่น", value: "นกหัวขวานขนาดกลาง มีแถบสีแดงสดบริเวณศีรษะ ลำตัวลายขาวดำ ท้องมีสีแดงอ่อนซึ่งมองเห็นได้ยาก" },
+          { label: "📏 ขนาด", value: "22–26 ซม." },
+          { label: "⚖️ น้ำหนัก", value: "56–91 กรัม" },
+          { label: "🍽️ อาหาร", value: "แมลง ตัวอ่อน แมงมุม ผลไม้ และเมล็ดพืช" },
+          { label: "🏡 ถิ่นอาศัย", value: "ป่าไม้เขตอบอุ่น ป่าละเมาะ และพื้นที่ใกล้แหล่งน้ำในทวีปอเมริกาเหนือ" }
         ],
-        color: "#ED5537",
-        soundFile: "./Sounds/woodpecker.mp3",
-        modelFile: "./Birds/woodpecker/scene.gltf",
+        color: "#d32f2f",
+        soundFile: "./Sounds/red_bellied_woodpecker.mp3",
+        modelFile: "./Birds/red_bellied_woodpecker/scene.gltf",
         scale: "1 1 1",
         position: "0 -0.1 -2"
       }
+
     };
+
+    // A-Frame component for single tap detection
+    AFRAME.registerComponent('single-tap-handler', {
+      init: function() {
+        this.handleClick = this.handleClick.bind(this);
+        this.el.addEventListener('click', this.handleClick);
+      },
+      handleClick: function(evt) {
+        const modelId = this.el.id;
+        const panel = document.getElementById('info-panel');
+        
+        if (panel.style.display === 'block') {
+          hideBirdInfo();
+        } else {
+          showBirdInfo(modelId);
+        }
+      },
+      remove: function() {
+        this.el.removeEventListener('click', this.handleClick);
+      }
+    });
 
     function updatePagination(birdId) {
       const data = birdData[birdId];
@@ -134,6 +158,12 @@
       updatePagination(birdId);
       
       panel.style.display = 'block';
+    }
+
+    function hideBirdInfo() {
+      const panel = document.getElementById('info-panel');
+      panel.style.display = 'none';
+      stopAllBirdSounds();
     }
 
     function stopAllBirdSounds() {
@@ -223,17 +253,19 @@
         model.setAttribute('scale', data.scale);
         model.setAttribute('position', data.position);
         model.setAttribute('rotation', '0 0 0');
-        
+                
         model.addEventListener('model-loaded', function onLoaded() {
           model.removeEventListener('model-loaded', onLoaded);
-          
-          setTimeout(() => {
-            loadingOverlay.style.display = 'none';
-            model.setAttribute('visible', 'true');
-            showBirdInfo(modelId);
-            isModelLoading = false;
-          }, 500);
+
+          document.querySelectorAll('.bird-model').forEach(m => {
+            m.setAttribute('visible', 'false');
+          });
+
+          model.setAttribute('visible', 'true');
+          loadingOverlay.style.display = 'none';
+          isModelLoading = false;
         });
+
         
         model.addEventListener('model-error', function onError(e) {
           model.removeEventListener('model-error', onError);
@@ -250,20 +282,21 @@
     function selectBird(birdType) {
       stopAllBirdSounds();
       selectedBirdType = birdType;
-      
-      const models = document.querySelectorAll('.bird-model');
-      models.forEach(model => {
+
+      document.querySelectorAll('.bird-model').forEach(model => {
         model.setAttribute('visible', 'false');
+        model.removeAttribute('gltf-model'); // เคลียร์ของเก่า
       });
-      
+
       document.querySelectorAll('.bird-btn').forEach(btn => {
         btn.classList.remove('active');
       });
+
       const activeBtn = document.querySelector(`[data-bird="${birdType}"]`);
-      if (activeBtn) {
-        activeBtn.classList.add('active');
-      }
-      
+      if (activeBtn) activeBtn.classList.add('active');
+
+      hideBirdInfo();
+
       if (arStarted) {
         loadBirdModel(birdType);
       }
@@ -278,6 +311,7 @@
       const arScene = document.getElementById('ar-scene');
       const menu = document.getElementById('menu');
       const cursorDot = document.getElementById('cursor-dot');
+      const instructions = document.getElementById('instructions');
       
       welcomeScreen.style.opacity = '0';
       setTimeout(() => {
@@ -287,6 +321,7 @@
         setTimeout(() => {
           menu.style.display = 'flex';
           cursorDot.style.display = 'block';
+          instructions.style.display = 'block';
           arStarted = true;
           
           setTimeout(() => {
@@ -477,7 +512,7 @@
       user-select: none;
       -webkit-user-select: none;
       touch-action: pan-y;
-      pointer-events: none;
+      pointer-events: auto;
       position: fixed;
       inset: 0;
       width: 100vw;
@@ -692,6 +727,7 @@
       transition: opacity 0.3s ease;
       line-height: 1.5;
       user-select: none;
+      display: none;
     }
 
     #cursor-dot {
@@ -801,7 +837,11 @@
     <span class="menu-title">🐦 เลือกนกที่ต้องการศึกษา</span>
     <button class="bird-btn" data-bird="bluejay">🔵 Blue Jay</button>
     <button class="bird-btn" data-bird="eurasian">🔷 Eurasian Blue Tit</button>
-    <button class="bird-btn" data-bird="woodpecker">🟠 Woodpecker</button>
+    <button class="bird-btn" data-bird="red_bellied_woodpecker">🔴 Red Bellied Woodpecker</button>
+  </div>
+
+  <div class="instructions" id="instructions">
+    👆 แตะโมเดลเพื่อดูข้อมูล
   </div>
 
   <div id="cursor-dot"></div>
@@ -823,8 +863,8 @@
   <audio id="eurasian-sound" preload="auto">
     <source src="./Sounds/eurasian_blue_tit.mp3" type="audio/mpeg">
   </audio>
-  <audio id="woodpecker-sound" preload="auto">
-    <source src="./Sounds/woodpecker.mp3" type="audio/mpeg">
+  <audio id="red_bellied_woodpecker-sound" preload="auto">
+    <source src="./Sounds/red_bellied_woodpecker.mp3" type="audio/mpeg">
   </audio>
 
   <a-scene
@@ -834,14 +874,20 @@
     arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; trackingMethod: best;"
     renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true;">
     
-  <a-camera
-    fov="60"
-    position="0 0 0"
-    look-controls="enabled: true"
-    wasd-controls="enabled: false"
-    arjs-look-controls="smoothingFactor: 0.1">
-  </a-camera>
+    <a-camera
+      fov="60"
+      position="0 0 0"
+      look-controls="enabled: true"
+      wasd-controls="enabled: false"
+      arjs-look-controls="smoothingFactor: 0.1">
+    <a-cursor
+      fuse="false"
+      rayOrigin="mouse"
+      raycaster="objects: .bird-model"
+      material="opacity: 0">
+    </a-cursor>
 
+    </a-camera>
 
     <a-light type="ambient" intensity="1" color="#ffffff"></a-light>
     <a-light type="directional" intensity="0.8" position="2 4 2" color="#ffffff"></a-light>
@@ -853,7 +899,8 @@
       class="bird-model"
       rotation="0 0 0"
       animation-mixer
-      visible="false">
+      visible="false"
+      single-tap-handler>
     </a-entity>
 
     <a-entity
@@ -861,15 +908,17 @@
       class="bird-model"
       rotation="0 0 0"
       animation-mixer
-      visible="false">
+      visible="false"
+      single-tap-handler>
     </a-entity>
 
     <a-entity
-      id="woodpecker-model"
+      id="red_bellied_woodpecker-model"
       class="bird-model"
       rotation="0 0 0"
       animation-mixer
-      visible="false">
+      visible="false"
+      single-tap-handler>
     </a-entity>
 
     <a-entity
